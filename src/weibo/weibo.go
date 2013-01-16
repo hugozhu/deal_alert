@@ -2,7 +2,6 @@ package weibo
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -12,6 +11,13 @@ const BaseURL = "https://api.weibo.com/2"
 
 type Sina struct {
 	AccessToken string
+}
+
+type Weibo struct {
+	WeiboId   int64
+	Status    int
+	LastId    int64
+	WeiboName string
 }
 
 type WeiboPosts struct {
@@ -64,7 +70,7 @@ func (s *Sina) TimeLine(uid int64, since_id int64, count int) []WeiboPost {
 		if err != nil {
 			panic(err)
 		}
-		log.Println(posts)
+		return posts.Statuses
 	}
 	return nil
 }
