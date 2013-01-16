@@ -14,10 +14,13 @@ type Sina struct {
 }
 
 type Weibo struct {
+	Id        int64
 	WeiboId   int64
 	Status    int
 	LastId    int64
 	WeiboName string
+	Created   int64
+	Modified  int64
 }
 
 type WeiboPosts struct {
