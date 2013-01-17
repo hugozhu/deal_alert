@@ -131,8 +131,15 @@ func (db *DB) QueryForMap(sql string, args ...interface{}) []map[string]interfac
 	return result
 }
 
-func (db *DB) Execute(sql string) {
-	db.connection.Execute(sql)
+func (db *DB) Execute(sql string, args ...interface{}) (c int, e error) {
+	var st *Statement
+	if st, e = db.connection.Prepare(sql, args...); e == nil {
+		c, e = st.All(func(st *Statement, row ...interface{}) {
+			log.Debug("hello")
+		})
+	}
+	return
+
 }
 
 func Run(file string, f func(*DB)) {

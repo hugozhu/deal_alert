@@ -2,12 +2,16 @@ package weibo
 
 import (
 	"encoding/json"
+	"github.com/hugozhu/log4go"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 )
 
 const BaseURL = "https://api.weibo.com/2"
+
+var log = log4go.New(os.Stdout)
 
 type Sina struct {
 	AccessToken string
@@ -60,13 +64,15 @@ func (s *Sina) TimeLine(uid int64, since_id int64, count int) []WeiboPost {
 	params.Set("since_id", strconv.FormatInt(since_id, 10))
 	params.Set("count", strconv.Itoa(count))
 
-	resp, err := http.Get(BaseURL + "/statuses/user_timeline.json?" + params.Encode())
+	url := BaseURL + "/statuses/user_timeline.json?" + params.Encode()
+	resp, err := http.Get(url)
 	if err != nil {
 		return nil
 	}
 	defer resp.Body.Close()
 
 	var posts WeiboPosts
+	log.Info(url)
 	if resp.StatusCode == 200 {
 		d := json.NewDecoder(resp.Body)
 		err = d.Decode(&posts)
@@ -74,6 +80,8 @@ func (s *Sina) TimeLine(uid int64, since_id int64, count int) []WeiboPost {
 			panic(err)
 		}
 		return posts.Statuses
+	} else {
+		log.Error("failed to fetch:" + url)
 	}
 	return nil
 }

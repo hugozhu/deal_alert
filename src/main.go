@@ -4,6 +4,7 @@ import (
 	"github.com/hugozhu/log4go"
 	"os"
 	"sqlite"
+	"time"
 	"weibo"
 )
 
@@ -20,29 +21,29 @@ func init() {
 var db_file = os.Getenv("PWD") + "/data/deal_alert.db"
 
 func main() {
+	log.Info(time.Now())
+	var weibo_list []weibo.Weibo
 	sqlite.Run(db_file, func(db *sqlite.DB) {
-		defer func() {
-
-		}()
-		var v weibo.Weibo
-		db.Query(&v, "select * from weibo")
-		log.Info(v)
+		db.Query(&weibo_list, "select * from weibo")
+		post_chan := make(chan bool, len(weibo_list))
+		for _, w := range weibo_list {
+			go func(w weibo.Weibo) {
+				last_id := w.LastId
+				posts := sina.TimeLine(w.WeiboId, w.LastId, 50)
+				for _, post := range posts {
+					a, b := db.Execute("insert into queue (post_id, url,text, weibo_id,created) values (?,?,?,?,?)",
+						post.Id, "", post.Text, post.User.Id, time.Now().Unix())
+					log.Info(a, b)
+					if post.Id > last_id {
+						last_id = post.Id
+					}
+				}
+				db.Execute("update weibo set last_id=? where id=?", last_id, w.Id)
+				post_chan <- true
+			}(w)
+		}
+		for i := 0; i < len(weibo_list); i++ {
+			<-post_chan
+		}
 	})
-
-	weibo_ids := []int64{}
-	complete_chan := make(chan bool, len(weibo_ids))
-
-	for _, id := range weibo_ids {
-		go func() {
-			posts := sina.TimeLine(id, 0, 50)
-			log.Info(id, len(posts))
-			complete_chan <- true
-			for _, post := range posts {
-				log.Info(post.Id)
-			}
-		}()
-	}
-	for i := 0; i < len(weibo_ids); i++ {
-		<-complete_chan
-	}
 }
