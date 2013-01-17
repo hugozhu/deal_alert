@@ -21,8 +21,11 @@ var db_file = os.Getenv("PWD") + "/data/deal_alert.db"
 
 func main() {
 	sqlite.Run(db_file, func(db *sqlite.DB) {
-		var v []weibo.Weibo
-		db.QueryResults(&v, "select * from weibo")
+		defer func() {
+
+		}()
+		var v weibo.Weibo
+		db.Query(&v, "select * from weibo")
 		log.Info(v)
 	})
 

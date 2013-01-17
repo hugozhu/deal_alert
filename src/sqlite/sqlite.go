@@ -2,8 +2,9 @@ package sqlite
 
 import (
 	"fmt"
+	"github.com/hugozhu/log4go"
 	. "github.com/kuroneko/gosqlite3"
-	"log"
+	"os"
 	"reflect"
 	"strings"
 )
@@ -11,6 +12,8 @@ import (
 type DB struct {
 	connection *Database
 }
+
+var log = log4go.New(os.Stdout)
 
 func convertRow(st *Statement, row []interface{}) map[string]interface{} {
 	a := make(map[string]interface{})
@@ -20,44 +23,58 @@ func convertRow(st *Statement, row []interface{}) map[string]interface{} {
 	return a
 }
 
-func (db *DB) QueryResults(v interface{}, sql string, args ...interface{}) {
+func (db *DB) Query(v interface{}, sql string, args ...interface{}) {
+	defer func() {
+		if x := recover(); x != nil {
+			log.Error(x, ":", sql)
+		}
+	}()
+
 	rv := reflect.ValueOf(v)
 	pv := rv
 	if pv.Kind() != reflect.Ptr || pv.IsNil() {
 		panic("Invalid Unmarshal Error, must be pointer")
 	}
 	rv = rv.Elem()
+	isSlice := true
 	if rv.Kind() != reflect.Slice {
-		panic("Invalid Unmarshal Error, must be pointer of slice")
+		rv.Set(reflect.New(rv.Type()).Elem())
+		isSlice = false
+	} else {
+		rv.Set(reflect.MakeSlice(rv.Type(), 10, 10))
 	}
 
 	st, err := db.connection.Prepare(sql)
 	if err != nil {
 		panic(err)
 	}
-	rv.Set(reflect.MakeSlice(rv.Type(), 10, 10))
 	i := 0
 	st.All(func(st *Statement, row ...interface{}) {
-		if i >= rv.Cap() {
-			//grow slice if necessary
-			newcap := rv.Cap() + rv.Cap()/2
-			if newcap < 4 {
-				newcap = 4
+		var r reflect.Value
+		if isSlice {
+			if i >= rv.Cap() {
+				//grow slice if necessary
+				newcap := rv.Cap() + rv.Cap()/2
+				if newcap < 4 {
+					newcap = 4
+				}
+				newv := reflect.MakeSlice(rv.Type(), rv.Len(), newcap)
+				reflect.Copy(newv, rv)
+				rv.Set(newv)
 			}
-			log.Println(i, rv.Cap(), newcap)
-			newv := reflect.MakeSlice(rv.Type(), rv.Len(), newcap)
-			reflect.Copy(newv, rv)
-			rv.Set(newv)
+			if i >= rv.Len() {
+				rv.SetLen(i + 1)
+			}
+			r = rv.Index(i)
+		} else {
+			r = rv
 		}
-		if i >= rv.Len() {
-			rv.SetLen(i + 1)
-		}
-		r := rv.Index(i)
 		for j := 0; j < st.Columns(); j++ {
 			name := convertColumnNameToFieldName(st.ColumnName(j))
 			field := r.FieldByName(name)
 			if field.IsValid() {
 				switch field.Kind() {
+				case reflect.Int:
 				case reflect.Int64:
 					field.SetInt(row[j].(int64))
 					break
@@ -70,7 +87,9 @@ func (db *DB) QueryResults(v interface{}, sql string, args ...interface{}) {
 		}
 		i++
 	})
-	rv.SetLen(i)
+	if isSlice {
+		rv.SetLen(i)
+	}
 }
 
 func convertColumnNameToFieldName(s string) string {
@@ -93,12 +112,12 @@ func convertColumnNameToFieldName(s string) string {
 	return string(bytes2[0:length])
 }
 
-func (db *DB) Query(sql string, args ...interface{}) []map[string]interface{} {
-	// defer func() {
-	// 	if x := recover(); x != nil {
-	// 		log.Error(x, ":", sql)
-	// 	}
-	// }()
+func (db *DB) QueryForMap(sql string, args ...interface{}) []map[string]interface{} {
+	defer func() {
+		if x := recover(); x != nil {
+			log.Error(x, ":", sql)
+		}
+	}()
 
 	var result []map[string]interface{}
 	st, err := db.connection.Prepare(sql)
