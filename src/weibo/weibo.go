@@ -43,7 +43,8 @@ type WeiboPost struct {
 	Thumbnail_Pic           string
 	Bmiddle_Pic             string
 	Original_Pic            string
-	User                    WeiboUser
+	User                    *WeiboUser
+	Retweeted_Status        *WeiboPost
 }
 
 type WeiboUser struct {
