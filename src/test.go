@@ -1,10 +1,12 @@
 package main
 
 import (
-	"fmt"
-	mmsego "github.com/awsong/MMSEGO"
+	darts "github.com/awsong/go-darts"
+	"github.com/hugozhu/log4go"
+	"os"
 	"sqlite"
 	"strings"
+	"unicode"
 )
 
 type WeiboPost struct {
@@ -17,22 +19,51 @@ type WeiboPost struct {
 
 var DB_FILE = "data/deal_alert.db"
 
+var log = log4go.New(os.Stdout)
+
 func main() {
-	s := new(mmsego.Segmenter)
-	s.Init("data/deals.lib")
+	dict, err := darts.Load("data/deals.lib")
+	if err != nil {
+		panic(err)
+	}
 
 	sqlite.Run(DB_FILE, func(db *sqlite.DB) {
 		var posts []WeiboPost
-		db.Query(&posts, "select * from queue order by id asc")
+		db.Query(&posts, "select * from queue order by id asc limit 100 offset 0")
 		for _, post := range posts {
 			line := strings.ToUpper(post.Text)
-			offset := 0
-			takeWord := func(off int, length int) {
-				if length > 3 {
-					fmt.Printf("%d %s\n", post.Id, string(line[off-offset:off-offset+length]))
-				}
+			// log.Info(post.Id, line)
+			result := find_keywords(dict, line)
+			if len(result) > 0 {
+				log.Info(post.Id, result, post.Text)
 			}
-			s.Mmseg(line[0:], offset, takeWord, nil, true)
 		}
 	})
+}
+
+func find_keywords(dict darts.Darts, line string) []string {
+	arr := []rune(strings.ToUpper(line))
+	result := []string{}
+	for i := 0; i < len(arr); i++ {
+		offset := i
+		c := arr[offset]
+		if unicode.IsSpace(c) || unicode.IsPunct(c) {
+			continue
+		}
+		for pos := 2; offset+pos < len(arr); pos++ {
+			c := arr[offset+pos-1]
+			if unicode.IsPunct(c) {
+				break
+			}
+			// log.Info(string(arr[offset : offset+pos]))
+			exist, results := dict.CommonPrefixSearch(arr[offset:offset+pos], 0)
+			if len(results) > 0 {
+				result = append(result, string(arr[offset:offset+pos]))
+				offset = offset + pos - 1
+			} else if !exist {
+				break
+			}
+		}
+	}
+	return result
 }
