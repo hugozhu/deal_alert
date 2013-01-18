@@ -29,7 +29,7 @@ func main() {
 
 	sqlite.Run(DB_FILE, func(db *sqlite.DB) {
 		var posts []WeiboPost
-		db.Query(&posts, "select * from queue order by id asc limit 100 offset 0")
+		db.Query(&posts, "select * from queue order by id asc limit 2000 offset 0")
 		for _, post := range posts {
 			line := strings.ToUpper(post.Text)
 			// log.Info(post.Id, line)
@@ -41,9 +41,9 @@ func main() {
 	})
 }
 
-func find_keywords(dict darts.Darts, line string) []string {
+func find_keywords(dict darts.Darts, line string) map[string]int {
 	arr := []rune(strings.ToUpper(line))
-	result := []string{}
+	result := make(map[string]int)
 	for i := 0; i < len(arr); i++ {
 		offset := i
 		c := arr[offset]
@@ -58,7 +58,8 @@ func find_keywords(dict darts.Darts, line string) []string {
 			// log.Info(string(arr[offset : offset+pos]))
 			exist, results := dict.CommonPrefixSearch(arr[offset:offset+pos], 0)
 			if len(results) > 0 {
-				result = append(result, string(arr[offset:offset+pos]))
+				key := string(arr[offset : offset+pos])
+				result[key] = result[key] + 1
 				offset = offset + pos - 1
 			} else if !exist {
 				break
