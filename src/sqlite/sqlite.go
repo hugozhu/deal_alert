@@ -44,7 +44,7 @@ func (db *DB) Query(v interface{}, sql string, args ...interface{}) {
 		rv.Set(reflect.MakeSlice(rv.Type(), 10, 10))
 	}
 
-	st, err := db.connection.Prepare(sql)
+	st, err := db.connection.Prepare(sql, args...)
 	if err != nil {
 		panic(err)
 	}
@@ -120,7 +120,7 @@ func (db *DB) QueryForMap(sql string, args ...interface{}) []map[string]interfac
 	}()
 
 	var result []map[string]interface{}
-	st, err := db.connection.Prepare(sql)
+	st, err := db.connection.Prepare(sql, args...)
 	if err != nil {
 		panic(err)
 		return result
