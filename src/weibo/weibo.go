@@ -76,7 +76,7 @@ type WeiboComment struct {
 	Status *WeiboPost
 }
 
-func (s *Sina) TimeLine(uid int64, since_id int64, count int) []WeiboPost {
+func (s *Sina) TimeLine(uid int64, since_id int64, count int) []*WeiboPost {
 	params := url.Values{}
 	params.Set("uid", strconv.FormatInt(uid, 10))
 	params.Set("since_id", strconv.FormatInt(since_id, 10))
@@ -138,7 +138,9 @@ func (s *Sina) weiboApi(method string, base string, query url.Values, v interfac
 		panic(err)
 	}
 	defer resp.Body.Close()
-	log.Info(url1)
+
+	log.Debug(url1)
+
 	if resp.StatusCode == 200 {
 		d := json.NewDecoder(resp.Body)
 		err = d.Decode(&v)

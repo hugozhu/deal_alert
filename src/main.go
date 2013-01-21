@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/awsong/go-darts"
 	"github.com/hugozhu/log4go"
@@ -12,6 +13,9 @@ import (
 	"unicode"
 	"weibo"
 )
+
+var EnableDebug = flag.Bool("debug", false, "enable debug")
+var IsTestMode = flag.Bool("test", false, "enable test mode")
 
 var log = log4go.New(os.Stdout)
 
@@ -25,24 +29,36 @@ func init() {
 	sina = &weibo.Sina{
 		AccessToken: readToken(),
 	}
+	log.DebugEnabled = *EnableDebug
+
 	var err error
 	dict, err = darts.Load("data/deals.lib")
 	if err != nil {
 		panic(err)
 	}
+
+	flag.Parse()
+	if *IsTestMode {
+		log.Info("[Test mode]")
+	}
+	if *EnableDebug {
+		log.Info("[Enable debuging]")
+	}
 }
 
 func main() {
-	log.Info(time.Now())
 	var weibo_list []weibo.Weibo
 	sqlite.Run(DB_FILE, func(db *sqlite.DB) {
 		db.Query(&weibo_list, "select * from weibo")
-		post_chan := make(chan []weibo.WeiboPost, len(weibo_list))
+		post_chan := make(chan []*weibo.WeiboPost, len(weibo_list))
 		for _, w := range weibo_list {
 			go func(w weibo.Weibo) {
+				if *IsTestMode {
+					w.LastId = 0
+				}
 				last_id := w.LastId
-				posts := sina.TimeLine(w.WeiboId, w.LastId, 5)
-				posts2 := []weibo.WeiboPost{}
+				posts := sina.TimeLine(w.WeiboId, w.LastId, 10)
+				posts2 := []*weibo.WeiboPost{}
 				for _, post := range posts {
 					if post.Id <= w.LastId {
 						//ignore 过期置顶贴
@@ -55,18 +71,24 @@ func main() {
 					}
 
 					// log.Info(post.Text)
-					_, err := db.Execute("insert into queue (post_id, url,text, weibo_id,created) values (?,?,?,?,?)",
-						post.Id, "", post.Text, post.User.Id, time.Now().Unix())
-					if err != nil {
-						log.Error("Failed to save ", post.Id, w.LastId, post)
+					if !*IsTestMode {
+						_, err := db.Execute("insert into queue (post_id, url,text, weibo_id,created) values (?,?,?,?,?)",
+							post.Id, "", post.Text, post.User.Id, time.Now().Unix())
+						if err != nil {
+							log.Error("Failed to save ", post.Id, w.LastId, post)
+						} else {
+							posts2 = append(posts2, post)
+						}
+						if post.Id > last_id {
+							last_id = post.Id
+						}
 					} else {
 						posts2 = append(posts2, post)
 					}
-					if post.Id > last_id {
-						last_id = post.Id
-					}
 				}
-				db.Execute("update weibo set last_id=? where id=?", last_id, w.Id)
+				if !*IsTestMode {
+					db.Execute("update weibo set last_id=? where id=?", last_id, w.Id)
+				}
 				post_chan <- posts2
 			}(w)
 		}
@@ -74,7 +96,7 @@ func main() {
 			posts := <-post_chan
 			for _, post := range posts {
 				line := post.Text
-				log.Info(line)
+				log.Debug(line)
 				result := find_keywords(dict, line)
 				if len(result) > 0 { //matched
 					message := ""
@@ -93,13 +115,16 @@ func main() {
 						}
 					}
 					if len(message) > 0 {
-						//r := sina.StatusesRepost(post.Id, message)
-						//r := sina.CommentsCreate(post.Id, message)
-						r := []string{}
-						if r != nil {
-							log.Info("success alert:" + message)
+						if *IsTestMode {
+							log.Info("success alert:", message, line)
+						} else {
+							r := sina.StatusesRepost(post.Id, message)
+							//r := sina.CommentsCreate(post.Id, message)
+							if r != nil {
+								log.Info("success alert:" + message)
+							}
+							time.Sleep(3 * time.Second)
 						}
-						time.Sleep(3 * time.Second)
 					}
 				}
 			}
