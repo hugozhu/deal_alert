@@ -26,7 +26,7 @@ var log = log4go.New(os.Stdout)
 
 func main() {
 	sina := &weibo.Sina{
-		AccessToken: "2.008TkTLDIQdqsD4bbfd082cchG3E9E",
+		AccessToken: readToken(),
 	}
 
 	dict, err := darts.Load("data/deals.lib")
@@ -89,4 +89,13 @@ func find_keywords(dict darts.Darts, line string) map[string]int {
 		}
 	}
 	return result
+}
+
+func readToken() string {
+	data, err := ioutil.ReadFile(os.Getenv("PWD") + "/token")
+	if err != nil {
+		log.Error(err)
+		panic(err)
+	}
+	return string(data[:32])
 }
