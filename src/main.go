@@ -141,7 +141,7 @@ func find_keywords(dict darts.Darts, line string) map[string]int {
 		if unicode.IsSpace(c) || unicode.IsPunct(c) {
 			continue
 		}
-		for pos := 2; offset+pos < len(arr); pos++ {
+		for pos := 1; offset+pos < len(arr); pos++ {
 			c := arr[offset+pos-1]
 			if unicode.IsPunct(c) {
 				break
