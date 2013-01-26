@@ -16,7 +16,10 @@ func main() {
 		var keywords []weibo.UserKeyword
 		db.Query(&keywords, "select keyword, count(id) as frequence from user_keyword group by keyword")
 		for _, keyword := range keywords {
-			fmt.Printf("%s\t%d\n", strings.ToUpper(keyword.Keyword), keyword.Frequence)
+			line := keyword.Keyword
+			for _, v := range strings.Split(line, " ") {
+				fmt.Printf("%s\t%d\n", strings.ToUpper(v), keyword.Frequence)
+			}
 		}
 	})
 }
