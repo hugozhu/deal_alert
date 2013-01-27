@@ -23,6 +23,12 @@ func (i item) String() string {
 		return "EOF"
 	case i.typ == itemError:
 		return i.val
+	case i.typ == itemAND:
+		return "+"
+	case i.typ == itemOR:
+		return "|"
+	case i.typ == itemNOT:
+		return "-"
 	case i.typ > itemError:
 		return fmt.Sprintf("<%s>", i.val)
 	case len(i.val) > 10:
@@ -36,12 +42,8 @@ type itemType int
 
 const (
 	itemError itemType = iota // error occurred; value is text of error
-	itemString
-	itemNumber
-	itemComplex // complex constant (1+2i); imaginary is just a number
 	itemTerm
-	itemField
-	itemChar
+	itemPhrase
 	itemAND
 	itemOR
 	itemNOT
@@ -51,10 +53,8 @@ const (
 // Make the types prettyprint.
 var itemName = map[itemType]string{
 	itemError:  "error",
-	itemString: "string",
-	itemNumber: "number",
 	itemTerm:   "term",
-	itemField:  "field",
+	itemPhrase: "phrase",
 	itemAND:    "and",
 	itemOR:     "or",
 	itemNOT:    "not",
@@ -67,12 +67,6 @@ func (i itemType) String() string {
 		return fmt.Sprintf("item%d", int(i))
 	}
 	return s
-}
-
-var key = map[string]itemType{
-	"and": itemAND,
-	"or":  itemOR,
-	"not": itemNOT,
 }
 
 const eof = -1
@@ -172,43 +166,61 @@ func lex(name, input string) *lexer {
 	l := &lexer{
 		name:  name,
 		input: input,
-		state: lexInsideAction,
+		state: lexAction,
 		items: make(chan item, 2), // Two items of buffering is sufficient for all state functions
 	}
 	return l
 }
 
 // state functions
-
-// lexInsideAction scans the elements inside action delimiters.
-func lexInsideAction(l *lexer) stateFn {
+func lexAction(l *lexer) stateFn {
 	switch r := l.next(); {
 	case r == eof || r == '\n':
 		return l.errorf("unclosed action")
 	case isSpace(r):
-		return lexInsideAction
+		return lexSpace
 	case r == '"':
 		return lexQuote
+	case r == '|':
+		l.emit(itemOR)
 	case r == '+':
 		l.emit(itemAND)
 	case r == '-' || r == '!':
 		l.emit(itemNOT)
-		return lexInsideAction
+		return lexAction
 	case unicode.IsPrint(r):
 		return lexTerm
 	default:
 		return l.errorf("unrecognized character in action: %#U", r)
 	}
-	return lexInsideAction
+	return lexAction
+}
+
+func lexSpace(l *lexer) stateFn {
+	l.ignore()
+	for {
+		r := l.next()
+		if r == eof {
+			l.emit(itemEOF)
+			return nil
+		}
+		if isSpace(r) {
+			l.ignore()
+		} else {
+			l.backup()
+			break
+		}
+	}
+	return lexAction
 }
 
 func lexTerm(l *lexer) stateFn {
 	for {
-		if strings.HasPrefix(l.input[l.pos:], " ") {
+		if l.peek() == ' ' {
 			if l.pos > l.start {
 				l.emit(itemTerm)
 			}
-			return lexInsideAction
+			return lexAction
 		}
 		if l.next() == eof {
 			break
@@ -238,23 +250,8 @@ Loop:
 			break Loop
 		}
 	}
-	l.emit(itemString)
-	return lexInsideAction
-}
-
-// lexRawQuote scans a raw quoted string.
-func lexRawQuote(l *lexer) stateFn {
-Loop:
-	for {
-		switch l.next() {
-		case eof, '\n':
-			return l.errorf("unterminated raw quoted string")
-		case '`':
-			break Loop
-		}
-	}
-	l.emit(itemString)
-	return lexInsideAction
+	l.emit(itemPhrase)
+	return lexAction
 }
 
 // isSpace reports whether r is a space character.

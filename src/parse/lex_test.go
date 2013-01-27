@@ -5,7 +5,9 @@ import (
 )
 
 func TestLex(t *testing.T) {
-	l := lex("name", "Test 123 \"My LA\" +Apple -水果")
+	query := "   Test 123 \"My LA\"      +  Apple -  \"水果\"  + "
+	t.Log("orgi:", "\"", query, "\"")
+	l := lex("name", query)
 	var items []item
 	for {
 		item := l.nextItem()

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"parse"
 	"sqlite"
 	"strings"
 	"weibo"
@@ -14,11 +15,12 @@ func main() {
 	log.Println("generating new dict...")
 	sqlite.Run(DB_FILE, func(db *sqlite.DB) {
 		var keywords []weibo.UserKeyword
-		db.Query(&keywords, "select keyword, count(id) as frequence from user_keyword group by keyword")
+		db.Query(&keywords, "select keyword, id from user_keyword")
 		for _, keyword := range keywords {
 			line := keyword.Keyword
-			for _, v := range strings.Split(line, " ") {
-				fmt.Printf("%s\t%d\n", strings.ToUpper(v), keyword.Frequence)
+			query, _ := parse.Parse(line)
+			for _, k := range query.AllTerms() {
+				fmt.Printf("%s\t%d\n", strings.ToUpper(k), keyword.Id)
 			}
 		}
 	})
