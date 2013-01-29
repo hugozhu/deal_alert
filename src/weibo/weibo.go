@@ -14,6 +14,10 @@ const BaseURL = "https://api.weibo.com/2"
 
 var log = log4go.New(os.Stdout)
 
+func SetDebugEnabled(enable *bool) {
+	log.DebugEnabled = enable
+}
+
 type Sina struct {
 	AccessToken string
 }

@@ -10,5 +10,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	// log.Println(dict)
+
 	log.Println("done")
 }

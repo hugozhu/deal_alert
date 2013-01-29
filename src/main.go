@@ -7,10 +7,9 @@ import (
 	"github.com/hugozhu/log4go"
 	"io/ioutil"
 	"os"
+	"search"
 	"sqlite"
-	"strings"
 	"time"
-	"unicode"
 	"weibo"
 )
 
@@ -29,7 +28,8 @@ func init() {
 	sina = &weibo.Sina{
 		AccessToken: readToken(),
 	}
-	log.DebugEnabled = *EnableDebug
+	log.DebugEnabled = EnableDebug
+	weibo.SetDebugEnabled(EnableDebug)
 
 	var err error
 	dict, err = darts.Load("data/deals.lib")
@@ -42,7 +42,7 @@ func init() {
 		log.Info("[Test mode]")
 	}
 	if *EnableDebug {
-		log.Info("[Enable debuging]")
+		log.Debug("[Enable debuging]")
 	}
 }
 
@@ -97,7 +97,7 @@ func main() {
 			for _, post := range posts {
 				line := post.Text
 				log.Debug(line)
-				result := find_keywords(dict, line)
+				result := search.FindKeywords(dict, line)
 				if len(result) > 0 { //matched
 					message := ""
 					for k, _ := range result {
@@ -130,34 +130,6 @@ func main() {
 			}
 		}
 	})
-}
-
-func find_keywords(dict darts.Darts, line string) map[string]int {
-	arr := []rune(strings.ToUpper(line))
-	result := make(map[string]int)
-	for i := 0; i < len(arr); i++ {
-		offset := i
-		c := arr[offset]
-		if unicode.IsSpace(c) || unicode.IsPunct(c) {
-			continue
-		}
-		for pos := 1; offset+pos < len(arr); pos++ {
-			c := arr[offset+pos-1]
-			if unicode.IsPunct(c) {
-				break
-			}
-			// log.Info(string(arr[offset : offset+pos]))
-			exist, results := dict.CommonPrefixSearch(arr[offset:offset+pos], 0)
-			if len(results) > 0 {
-				key := string(arr[offset : offset+pos])
-				result[key] = result[key] + 1
-				offset = offset + pos - 1
-			} else if !exist {
-				break
-			}
-		}
-	}
-	return result
 }
 
 func readToken() string {
