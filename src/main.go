@@ -96,9 +96,14 @@ func main() {
 			posts := <-post_chan
 			for _, post := range posts {
 				line := post.Text
-				log.Debug(line)
 				result := search.FindKeywords(dict, line)
 				if len(result) > 0 { //matched
+					urls := search.FindUrls(line)
+					if len(urls) > 0 {
+						for _, u := range weibo.ExpandUrls(urls) {
+							line = line + " " + u
+						}
+					}
 					message := ""
 					for k, _ := range result {
 						var users []weibo.UserKeyword

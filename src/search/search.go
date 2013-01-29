@@ -14,6 +14,17 @@ func SetDebugEnabled(enable bool) {
 	log.DebugEnabled = &enable
 }
 
+func FindUrls(line string) (urls []string) {
+	pos := strings.Index(line, "http://t.cn/")
+	if pos > -1 && pos+19 <= len(line) {
+		urls = append(urls, line[pos:pos+19])
+		for _, u := range FindUrls(line[pos+19:]) {
+			urls = append(urls, u)
+		}
+	}
+	return
+}
+
 func FindKeywords(dict darts.Darts, line string) map[string]int {
 	arr := []rune(strings.ToUpper(line))
 	result := make(map[string]int)

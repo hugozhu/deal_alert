@@ -2,6 +2,7 @@ package weibo
 
 import (
 	"encoding/json"
+	"errors"
 	"github.com/hugozhu/log4go"
 	"io/ioutil"
 	"net/http"
@@ -80,6 +81,17 @@ type WeiboComment struct {
 	Status *WeiboPost
 }
 
+type WeiboUrlInfos struct {
+	Urls []*WeiboUrlInfo
+}
+
+type WeiboUrlInfo struct {
+	Url_Short   string
+	Url_Long    string
+	Title       string
+	Description string
+}
+
 func (s *Sina) TimeLine(uid int64, since_id int64, count int) []*WeiboPost {
 	params := url.Values{}
 	params.Set("uid", strconv.FormatInt(uid, 10))
@@ -123,6 +135,33 @@ func (s *Sina) StatusesRepost(id int64, status string) *WeiboPost {
 		return &v
 	}
 	return nil
+}
+
+func (s *Sina) ShortUrlInfo(urls []string) []*WeiboUrlInfo {
+	params := url.Values{}
+	for _, u := range urls {
+		params.Add("url_short", u)
+	}
+	var v WeiboUrlInfos
+	if s.GET("/short_url/info.json", params, &v) {
+		return v.Urls
+	}
+	return nil
+}
+
+func ExpandUrls(urls []string) (expandedUrls []string) {
+	for _, u := range urls {
+		client := &http.Client{
+			CheckRedirect: func(req *http.Request, reqs []*http.Request) error {
+				return errors.New("No need to redirect")
+			},
+		}
+		resp, _ := client.Get(u)
+		if resp.Header["Location"] != nil {
+			expandedUrls = append(expandedUrls, resp.Header.Get("Location"))
+		}
+	}
+	return
 }
 
 func (s *Sina) weiboApi(method string, base string, query url.Values, v interface{}) bool {
