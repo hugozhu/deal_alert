@@ -105,17 +105,20 @@ func main() {
 						}
 					}
 					message := ""
+					at_users := make(map[string]bool)
 					for k, _ := range result {
 						var users []weibo.UserKeyword
 						db.Query(&users, "select weibo_uid, keyword from user_keyword where keyword like ?", k)
 						if users == nil || len(users) < 1 {
 							continue
 						}
+
 						message = message + fmt.Sprintf("#%s# ", k)
 						for _, u := range users {
 							weibo_user := sina.UsersShow(u.WeiboUid)
-							if weibo_user != nil {
+							if weibo_user != nil && at_users[weibo_user.Screen_name] != true {
 								message = message + "@" + weibo_user.Screen_name + " "
+								at_users[weibo_user.Screen_name] = true
 							}
 						}
 					}
